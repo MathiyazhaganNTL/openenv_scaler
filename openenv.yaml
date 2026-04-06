@@ -1,0 +1,32 @@
+spec_version: 1
+name: customer_support_env
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+
+metadata:
+  description: "AI-Powered Customer Support Ticket Resolution Environment for training agents to handle real customer issues"
+  version: "1.0.0"
+  author: "OpenEnv Hackathon Team"
+  tags:
+    - openenv
+    - customer-support
+    - nlp
+    - reinforcement-learning
+
+tasks:
+  - id: easy_faq
+    name: "Simple FAQ Resolution"
+    description: "Handle basic customer FAQs like order status, return policy, shipping info"
+    difficulty: easy
+
+  - id: medium_refund
+    name: "Conditional Refund Processing"
+    description: "Process refund requests with policy conditions, eligibility checks, and partial refund logic"
+    difficulty: medium
+
+  - id: hard_escalation
+    name: "Complex Complaint Escalation"
+    description: "Handle angry customers with multi-step issues requiring empathy, logic, and resolution strategy"
+    difficulty: hard
