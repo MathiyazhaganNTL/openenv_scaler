@@ -164,7 +164,7 @@ if ! command -v openenv &>/dev/null; then
 fi
 
 VALIDATE_OK=false
-VALIDATE_OUTPUT=$(cd "$REPO_DIR" && openenv validate 2>&1) && VALIDATE_OK=true
+VALIDATE_OUTPUT=$(cd "$REPO_DIR" && python -m openenv.cli validate 2>&1) && VALIDATE_OK=true
 
 if [ "$VALIDATE_OK" = true ]; then
   pass "openenv validate passed"
