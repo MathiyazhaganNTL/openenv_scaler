@@ -159,7 +159,7 @@ The reward function uses a **dense, multi-axis scoring system**:
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/MathiyazhaganNTL/openenv_scaler.git
 cd openenv
 
 # Install dependencies
@@ -310,7 +310,7 @@ This environment is designed for deployment as a **Docker-based HuggingFace Spac
 
 ```bash
 # Using openenv CLI
-openenv push --repo-id your-username/customer-support-env
+openenv push --repo-id mathi3046/customer-support-env
 ```
 
 The API endpoint `POST /reset` will respond with HTTP 200, confirming the Space is operational.
