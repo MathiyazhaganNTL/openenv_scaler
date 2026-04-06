@@ -5,11 +5,11 @@ This script runs an AI agent through all tasks and computes final scores.
 It uses the OpenAI-compatible API to generate agent responses.
 
 Environment Variables:
-    API_BASE_URL   — Base URL for the LLM API (default: https://api.openai.com/v1)
-    MODEL_NAME     — Model to use (default: gpt-3.5-turbo)
-    OPENAI_API_KEY — API key for OpenAI
-    HF_TOKEN       — Hugging Face token (alternative auth)
-    ENV_BASE_URL   — Base URL for the environment server (default: http://localhost:8000)
+    API_BASE_URL      — Base URL for the LLM API (default: https://api.openai.com/v1)
+    MODEL_NAME        — Model to use (default: gpt-3.5-turbo)
+    HF_TOKEN          — Hugging Face token (no default)
+    LOCAL_IMAGE_NAME  — Optional: local Docker image name when using from_docker_image()
+    ENV_BASE_URL      — Base URL for the environment server (default: http://localhost:8000)
 
 Usage:
     python inference.py
@@ -23,15 +23,26 @@ import time
 from typing import Any, Dict, List, Optional
 
 import requests
+from openai import OpenAI
 
 # ──────────────────────────────────────────────────────────────────
-# Configuration
+# Configuration  (checklist-compliant env var declarations)
 # ──────────────────────────────────────────────────────────────────
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
-ENV_BASE_URL = os.environ.get("ENV_BASE_URL", "http://localhost:8000")
+# Defaults allowed only for API_BASE_URL and MODEL_NAME
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME",   "gpt-3.5-turbo")
+
+# No default for HF_TOKEN (required by checklist)
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Optional — only needed when using from_docker_image()
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000")
+
+# Resolve API key: prefer HF_TOKEN, fall back to empty string
+_api_key = HF_TOKEN or ""
 
 # Logging configuration
 logging.basicConfig(
@@ -43,8 +54,15 @@ logger = logging.getLogger(__name__)
 
 
 # ──────────────────────────────────────────────────────────────────
-# LLM Client
+# LLM Client  (uses OpenAI SDK — required by checklist item 4)
 # ──────────────────────────────────────────────────────────────────
+
+# Initialise the OpenAI-compatible client once at module level
+_llm_client = OpenAI(
+    api_key=_api_key,
+    base_url=API_BASE_URL,
+)
+
 
 def call_llm(
     messages: List[Dict[str, str]],
@@ -52,29 +70,19 @@ def call_llm(
     max_tokens: int = 512,
 ) -> str:
     """
-    Call the LLM API with the given messages.
+    Call the LLM via the OpenAI SDK client.
 
     Returns:
         The assistant's response text.
     """
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-    }
-
-    payload = {
-        "model": MODEL_NAME,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-
     try:
-        url = f"{API_BASE_URL}/chat/completions"
-        resp = requests.post(url, headers=headers, json=payload, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+        completion = _llm_client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return completion.choices[0].message.content.strip()
     except Exception as e:
         logger.error(f"[ERROR] LLM call failed: {e}")
         return "I apologize for the inconvenience. Let me look into this for you right away."
