@@ -1,0 +1,140 @@
+﻿docker : #0 building with 
+"desktop-linux" instance 
+using docker driver
+At line:1 char:1
++ docker build -t 
+customer-support-env 
+--progress=plain . 2>&1 | 
+Out-Fi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (#  
+  0 building wit...g do   
+ cker driver:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+
+#1 [internal] load build 
+definition from Dockerfile
+#1 transferring 
+dockerfile: 1.82kB 0.0s 
+done
+#1 DONE 0.0s
+
+#2 [internal] load 
+metadata for docker.io/lib
+rary/python:3.11-slim
+#2 DONE 0.4s
+
+#3 [internal] load 
+.dockerignore
+#3 transferring context: 
+153B 0.0s done
+#3 DONE 0.0s
+
+#4 [internal] load build 
+context
+#4 transferring context: 
+1.83kB 0.1s done
+#4 DONE 0.1s
+
+#5 [1/8] FROM docker.io/li
+brary/python:3.11-slim@sha
+256:9358444059ed78e2975ada
+2c189f1c1a3144a5dab6f35bff
+8c981afb38946634
+#5 resolve docker.io/libra
+ry/python:3.11-slim@sha256
+:9358444059ed78e2975ada2c1
+89f1c1a3144a5dab6f35bff8c9
+81afb38946634 0.0s done
+#5 DONE 0.1s
+
+#6 [4/8] COPY 
+requirements.txt .
+#6 CACHED
+
+#7 [6/8] RUN useradd -m 
+-u 1000 user
+#7 CACHED
+
+#8 [3/8] RUN apt-get 
+update &&     apt-get 
+install -y 
+--no-install-recommends 
+curl &&     rm -rf 
+/var/lib/apt/lists/*
+#8 CACHED
+
+#9 [2/8] WORKDIR /app
+#9 CACHED
+
+#10 [5/8] RUN pip install 
+--no-cache-dir --upgrade 
+pip &&     pip install 
+--no-cache-dir -r 
+requirements.txt
+#10 CACHED
+
+#11 [7/8] WORKDIR /app
+#11 CACHED
+
+#12 [8/8] COPY 
+--chown=user:user . .
+#12 DONE 0.1s
+
+#13 exporting to image
+#13 exporting layers 0.1s 
+done
+#13 exporting manifest sha
+256:536a5129be8063a91712e1
+408a014d8b1c4371a5d8221560
+d820227dfeec39ff 0.0s done
+#13 exporting config sha25
+6:690779aa00f7d8f134d5a873
+d0d2490654218f259544a307ec
+fe7fd7b8a9f171 0.0s done
+#13 exporting attestation 
+manifest sha256:7024ee7f53
+7f443e99e131e470ced74171d7
+b6e8e5914f51e8375f592d9191
+09
+#13 exporting attestation 
+manifest sha256:7024ee7f53
+7f443e99e131e470ced74171d7
+b6e8e5914f51e8375f592d9191
+09 0.1s done
+#13 exporting manifest 
+list sha256:6200aa934d8559
+367e3615dea06e732b858e71a4
+a7c98b8415ae9e8c7c86ca5a 
+0.0s done
+#13 naming to docker.io/li
+brary/customer-support-env
+:latest done
+#13 unpacking to docker.io
+/library/customer-support-
+env:latest
+#13 unpacking to docker.io
+/library/customer-support-
+env:latest 0.1s done
+#13 DONE 0.5s
+
+ [33m1 warning found 
+(use docker --debug to 
+expand):
+[0m - UndefinedVar: 
+Usage of undefined 
+variable '$PYTHONPATH' 
+(line 34)
+
+View build details: docker
+-desktop://dashboard/build
+/desktop-linux/desktop-lin
+ux/2ncy0whe8fec66em09ecg4o
+oj
