@@ -1,0 +1,13 @@
+
+============================================================
+  Pre-Submission Checklist ??? Automated Audit
+============================================================
+  [PASS] OK  1. Follows sample inference.py structure
+  [PASS] OK  2. All env vars present (API_BASE_URL=True, MODEL_NAME=True, HF_TOKEN=True, LOCAL_IMAGE_NAME=True)
+  [PASS] OK  3. Defaults: API_BASE_URL=Yes(True), MODEL_NAME=Yes(True), HF_TOKEN=No(True)
+  [PASS] OK  4. LLM calls use OpenAI SDK (chat.completions.create)
+  [PASS] OK  5. Stdout logs use [START]/[STEP]/[END] format
+------------------------------------------------------------
+  RESULT: 5/5 checks passed
+  >> Your submission is READY!
+============================================================
