@@ -1,7 +1,7 @@
 """Pre-Submission Checklist Auditor — checks inference.py against all 5 rules."""
 import re, sys
 
-path = r"G:\CLG_Hacks\Hackathons\13.openenv\openenv\inference.py"
+path = "inference.py"
 src = open(path, "r", encoding="utf-8").read()
 
 checks = []

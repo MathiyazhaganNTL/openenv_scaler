@@ -26,26 +26,26 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Create a non-root user (required by HF Spaces)
+# Create a non-root user (required by HF Spaces)t
 RUN useradd -m -u 1000 user
 USER user
 
 # Set environment
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
-    PYTHONPATH="/app:$PYTHONPATH"
+    PYTHONPATH="/app"
 
 WORKDIR /app
 
 # Copy application code (as non-root user)
 COPY --chown=user:user . .
 
-# Expose HF Spaces default port
-EXPOSE 7860
+# Expose port (local default matching README)
+EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/health')" || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
-# Run server on port 7860 (HF Spaces default)
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860"]
+# Run server on port 8000
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000"]
