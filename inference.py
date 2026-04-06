@@ -291,7 +291,7 @@ def main():
     logger.info(f"API_BASE_URL:  {API_BASE_URL}")
     logger.info(f"MODEL_NAME:    {MODEL_NAME}")
     logger.info(f"ENV_BASE_URL:  {ENV_BASE_URL}")
-    logger.info(f"API Key set:   {'Yes' if OPENAI_API_KEY else 'No'}")
+    logger.info(f"API Key set:   {'Yes' if _api_key else 'No'}")
     logger.info("=" * 60)
 
     env_client = EnvClient(base_url=ENV_BASE_URL)
