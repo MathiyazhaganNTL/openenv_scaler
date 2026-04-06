@@ -7,7 +7,7 @@ Contains 3 tasks with increasing difficulty:
   3. HARD   — Complex complaint escalation with angry customer
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from models import (
     CustomerMessage,
@@ -66,7 +66,7 @@ def _task(
     max_steps: int,
     expected_keywords: List[str],
     grading_rubric: Dict[str, Any],
-    follow_up_messages: List[str] | None = None,
+    follow_up_messages: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     return {
         "task_id": task_id,

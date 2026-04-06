@@ -1,0 +1,55 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.82kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 DONE 1.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 153B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 1.32kB done
+#4 DONE 0.0s
+
+#5 [1/8] FROM docker.io/library/python:3.11-slim@sha256:9358444059ed78e2975ada2c189f1c1a3144a5dab6f35bff8c981afb38946634
+#5 resolve docker.io/library/python:3.11-slim@sha256:9358444059ed78e2975ada2c189f1c1a3144a5dab6f35bff8c981afb38946634 done
+#5 DONE 0.0s
+
+#6 [5/8] RUN pip install --no-cache-dir --upgrade pip &&     pip install --no-cache-dir -r requirements.txt
+#6 CACHED
+
+#7 [3/8] RUN apt-get update &&     apt-get install -y --no-install-recommends curl &&     rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [4/8] COPY requirements.txt .
+#8 CACHED
+
+#9 [6/8] RUN useradd -m -u 1000 user
+#9 CACHED
+
+#10 [2/8] WORKDIR /app
+#10 CACHED
+
+#11 [7/8] WORKDIR /app
+#11 CACHED
+
+#12 [8/8] COPY --chown=user:user . .
+#12 DONE 0.0s
+
+#13 exporting to image
+#13 exporting layers 0.0s done
+#13 exporting manifest sha256:5ab7623b6e61000c4401b659431833f2c253f2c21b8edac445ef308423076c28 done
+#13 exporting config sha256:2f12c65186d1ee69ec2fd54a712fdd09b8cfe52db92ace868dc8d12ef045e1db done
+#13 exporting attestation manifest sha256:ddb06efbc7658dc031278ea3eded56bca863b47d3bcf2712d09ef1e5f7f866cb done
+#13 exporting manifest list sha256:a669585cad8628c04d589f583f33287ec2d1be204ab0afd0ceddfd7a5a088939 0.0s done
+#13 naming to docker.io/library/test_build:latest
+#13 naming to docker.io/library/test_build:latest done
+#13 unpacking to docker.io/library/test_build:latest done
+#13 DONE 0.1s
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - UndefinedVar: Usage of undefined variable '$PYTHONPATH' (line 34)
