@@ -156,7 +156,8 @@ class CustomerSupportEnvironment:
         )
 
         # Clamp step reward to strict (0, 1) — never exactly 0.0 or 1.0
-        step_reward = max(0.01, min(0.99, reward_breakdown.total))
+        step_reward = max(0.0001, min(0.9999, reward_breakdown.total))
+        print(f"[DEBUG] environment.step: raw_total={reward_breakdown.total:.6f} step_reward={step_reward:.6f}")
         self._cumulative_reward += step_reward
         self._state.cumulative_reward = self._cumulative_reward
         self._state.reward_history.append(reward_breakdown)
@@ -196,7 +197,7 @@ class CustomerSupportEnvironment:
 
         # Compute average reward — clamped to strict (0, 1)
         avg_reward = self._cumulative_reward / self._state.step_count
-        avg_reward = max(0.01, min(0.99, avg_reward))
+        avg_reward = max(0.0001, min(0.9999, avg_reward))
 
         # Build info dict — all scores strictly in (0, 1)
         info = {

@@ -1,0 +1,63 @@
+﻿==================================================
+  Customer Support Environment ù Validation
+==================================================
+
+==================================================
+  Validating: easy_faq
+==================================================
+python : Traceback (most 
+recent call last):
+At line:1 char:1
++ python validate.py 2>&1 
+| Out-File -Encoding utf8 
+validation_run2.txt ...
++ ~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (T  
+  raceback (most recent   
+  call last)::String)     
+[], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+  File "G:\CLG_Hacks\Hacka
+thons\13.openenv\openenv\v
+alidate.py", line 219, in 
+<module>
+    sys.exit(main())
+             ~~~~^^
+  File "G:\CLG_Hacks\Hacka
+thons\13.openenv\openenv\v
+alidate.py", line 197, in 
+main
+    result = 
+validate_task(env, 
+task_id, responses)
+  File "G:\CLG_Hacks\Hacka
+thons\13.openenv\openenv\v
+alidate.py", line 39, in 
+validate_task
+    print(f"  \u2713 
+reset() returned valid 
+SupportObservation")
+    ~~~~~^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^
+  File "C:\Program Files\W
+indowsApps\PythonSoftwareF
+oundation.Python.3.13_3.13
+.3312.0_x64__qbz5n2kfra8p0
+\Lib\encodings\cp1252.py",
+ line 19, in encode
+    return codecs.charmap_
+encode(input,self.errors,e
+ncoding_table)[0]
+           ~~~~~~~~~~~~~~~
+~~~~~~^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+UnicodeEncodeError: 
+'charmap' codec can't 
+encode character '\u2713' 
+in position 2: character 
+maps to <undefined>

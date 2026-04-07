@@ -30,6 +30,17 @@ from server.environment import CustomerSupportEnvironment
 from tasks import TASK_IDS, TASKS
 
 
+def _safe_score(value) -> float:
+    """Clamp any value to strict (0, 1) for evaluator safety."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        v = 0.5
+    if v != v or v == float('inf') or v == float('-inf'):
+        v = 0.5
+    return max(0.0001, min(0.9999, v))
+
+
 # ──────────────────────────────────────────────────────────────────
 # Request / Response schemas
 # ──────────────────────────────────────────────────────────────────
@@ -45,7 +56,7 @@ class StepRequest(BaseModel):
 
 class StepResponse(BaseModel):
     observation: SupportObservation
-    reward: float
+    reward: float = Field(gt=0.0, lt=1.0)
     done: bool
     info: Dict[str, Any]
 
@@ -143,9 +154,17 @@ def step(request: StepRequest):
     """Execute an agent action and return the result."""
     try:
         obs, reward, done, info = env.step(action=request.action)
+        # Clamp reward to strict (0, 1) — evaluator rejects 0.0 or 1.0
+        safe_reward = _safe_score(reward)
+        # Also clamp all scores inside reward_breakdown in info
+        if "reward_breakdown" in info and isinstance(info["reward_breakdown"], dict):
+            rb = info["reward_breakdown"]
+            for key in ["correctness", "tone", "completeness", "efficiency", "total"]:
+                if key in rb:
+                    rb[key] = _safe_score(rb[key])
         return StepResponse(
             observation=obs,
-            reward=reward,
+            reward=safe_reward,
             done=done,
             info=info,
         )

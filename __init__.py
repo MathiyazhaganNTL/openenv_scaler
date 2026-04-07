@@ -5,14 +5,14 @@ A production-ready environment for training AI agents to handle
 real-world customer support scenarios.
 """
 
-from models import (
+from .models import (
     SupportAction,
     SupportObservation,
     SupportState,
     RewardBreakdown,
     StepResult,
 )
-from server.environment import CustomerSupportEnvironment
+from .server.environment import CustomerSupportEnvironment
 
 __all__ = [
     "CustomerSupportEnvironment",

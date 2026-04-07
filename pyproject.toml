@@ -35,3 +35,6 @@ include-package-data = true
 packages = [
     "server",
 ]
+
+[tool.pyright]
+extraPaths = ["."]

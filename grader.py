@@ -7,6 +7,10 @@ Evaluates agent responses on three axes:
   - Completeness (checklist of required response elements)
 
 Returns a RewardBreakdown with a total score in (0.0, 1.0) — strict open interval.
+
+IMPORTANT — Every numeric score produced by this module is passed through
+``normalize_score`` before it leaves the grader so that the evaluator NEVER
+receives a boundary value (0.0 or 1.0).
 """
 
 import re
@@ -15,14 +19,33 @@ from typing import Any, Dict, List
 from models import RewardBreakdown
 
 
-# Strict open-interval clamp: scores must never be exactly 0.0 or 1.0
-_SCORE_MIN = 0.01
-_SCORE_MAX = 0.99
+# ──────────────────────────────────────────────────────────────────
+# Central score normaliser — THE single source of truth
+# ──────────────────────────────────────────────────────────────────
+
+# Strict open-interval bounds: scores must never be exactly 0.0 or 1.0
+_SCORE_FLOOR = 0.0001
+_SCORE_CEIL  = 0.9999
 
 
-def _clamp(value: float, lo: float = _SCORE_MIN, hi: float = _SCORE_MAX) -> float:
-    """Clamp *value* into the strict open interval (0, 1)."""
-    return max(lo, min(hi, float(value)))
+def normalize_score(value: Any) -> float:
+    """Clamp *value* into the strict open interval (0, 1).
+
+    * ``None``  → 0.5
+    * anything that cannot be converted to float → 0.5
+    * values ≤ 0 → ``_SCORE_FLOOR``
+    * values ≥ 1 → ``_SCORE_CEIL``
+    """
+    if value is None:
+        return 0.5
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return 0.5
+    # Guard against NaN / Inf
+    if v != v or v == float('inf') or v == float('-inf'):
+        return 0.5
+    return max(_SCORE_FLOOR, min(_SCORE_CEIL, v))
 
 
 def _normalise(text: str) -> str:
@@ -38,11 +61,15 @@ def _score_correctness(
     response: str,
     rubric: Dict[str, Any],
 ) -> float:
-    """Score based on presence of expected keyword groups."""
+    """Score based on presence of expected keyword groups.
+
+    Returns a value in (0, 1) — never 0.0 or 1.0.
+    """
     norm = _normalise(response)
     criteria = rubric.get("criteria", [])
     if not criteria:
-        return 0.0
+        # No rubric → return a safe neutral score, never 0.0
+        return normalize_score(0.1)
 
     total = 0.0
     for criterion in criteria:
@@ -52,7 +79,7 @@ def _score_correctness(
         if any(kw.lower() in norm for kw in kw_group):
             total += points
 
-    return min(total, 1.0)
+    return normalize_score(total)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -66,6 +93,8 @@ def _score_tone(
     """
     Score tone based on positive and negative signal presence.
     Start at 0.5, boost for positive signals, penalize for negative signals.
+
+    Returns a value in (0, 1) — never 0.0 or 1.0.
     """
     norm = _normalise(response)
     criteria = rubric.get("criteria", {})
@@ -83,23 +112,23 @@ def _score_tone(
     # Each positive signal adds points (diminishing returns)
     if positive_signals:
         pos_ratio = pos_count / len(positive_signals)
-        score += pos_ratio * 0.5  # max +0.5 from positives
+        score += pos_ratio * 0.4  # max +0.4 from positives (keeps below 1.0)
 
     # Each negative signal deducts heavily
     if neg_count > 0:
-        score -= min(neg_count * 0.25, 0.5)  # max -0.5 from negatives
+        score -= min(neg_count * 0.2, 0.4)  # max -0.4 from negatives (keeps above 0.0)
 
     # Additional length/quality checks
     word_count = len(norm.split())
     if word_count < 10:
-        score -= 0.15  # Too terse is often rude
+        score -= 0.1  # Too terse is often rude
 
     # Check if response uses ALL CAPS excessively
     upper_ratio = sum(1 for c in response if c.isupper()) / max(len(response), 1)
     if upper_ratio > 0.4 and len(response) > 20:
-        score -= 0.1  # Shouting in response
+        score -= 0.05  # Shouting in response
 
-    return max(0.0, min(1.0, score))
+    return normalize_score(score)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -112,11 +141,15 @@ def _score_completeness(
     ticket_info: Dict[str, Any],
     conversation_history: List[Dict[str, Any]],
 ) -> float:
-    """Score based on completeness checklist."""
+    """Score based on completeness checklist.
+
+    Returns a value in (0, 1) — never 0.0 or 1.0.
+    """
     norm = _normalise(response)
     criteria = rubric.get("criteria", [])
     if not criteria:
-        return 0.0
+        # No rubric → return a safe neutral score, never 0.0
+        return normalize_score(0.1)
 
     total = 0.0
     for criterion in criteria:
@@ -227,7 +260,7 @@ def _score_completeness(
             if any(t in norm for t in follow_up_terms):
                 total += points
 
-    return min(total, 1.0)
+    return normalize_score(total)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -240,14 +273,14 @@ def _compute_penalties(
 ) -> float:
     """
     Compute penalties for bad behaviours.
-    Returns a negative value in [-1.0, 0.0].
+    Returns a negative value in [-0.5, 0.0].
     """
     norm = _normalise(response)
     penalty = 0.0
 
     # Penalty: empty or near-empty response
     if len(norm.split()) < 5:
-        penalty -= 0.3
+        penalty -= 0.2
 
     # Penalty: repeated response (copy-paste from previous)
     if conversation_history:
@@ -258,10 +291,10 @@ def _compute_penalties(
         ]
         for prev in prev_agent_msgs:
             if prev and norm == prev:
-                penalty -= 0.3
+                penalty -= 0.2
                 break
             elif prev and len(prev) > 20 and prev in norm:
-                penalty -= 0.15
+                penalty -= 0.1
                 break
 
     # Penalty: harmful/inappropriate content
@@ -270,7 +303,7 @@ def _compute_penalties(
         "moron", "loser", "go away",
     ]
     if any(pat in norm for pat in harmful_patterns):
-        penalty -= 0.5
+        penalty -= 0.3
 
     # Penalty: completely irrelevant response
     irrelevant_signals = [
@@ -278,9 +311,9 @@ def _compute_penalties(
         "political", "stock market",
     ]
     if sum(1 for s in irrelevant_signals if s in norm) >= 2:
-        penalty -= 0.4
+        penalty -= 0.3
 
-    return max(-1.0, penalty)
+    return max(-0.5, penalty)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -303,18 +336,18 @@ def grade_response(
         conversation_history: Previous messages
 
     Returns:
-        RewardBreakdown with scores in strict (0.0, 1.0) open interval
+        RewardBreakdown with ALL scores in strict (0.0, 1.0) open interval
     """
-    # Score each axis and clamp to strict (0, 1)
-    correctness_raw = _clamp(_score_correctness(
+    # Score each axis — normalize_score guarantees (0, 1)
+    correctness = normalize_score(_score_correctness(
         response,
         grading_rubric.get("correctness", {}),
     ))
-    tone_raw = _clamp(_score_tone(
+    tone = normalize_score(_score_tone(
         response,
         grading_rubric.get("tone", {}),
     ))
-    completeness_raw = _clamp(_score_completeness(
+    completeness = normalize_score(_score_completeness(
         response,
         grading_rubric.get("completeness", {}),
         ticket_info,
@@ -326,34 +359,42 @@ def grade_response(
     w_tone = grading_rubric.get("tone", {}).get("weight", 0.33)
     w_completeness = grading_rubric.get("completeness", {}).get("weight", 0.34)
 
-    # Compute penalties
+    # Compute penalties (capped at -0.5)
     penalties = _compute_penalties(response, conversation_history)
 
-    # Weighted total (before penalties) — clamped
-    weighted = _clamp(
-        correctness_raw * w_correctness
-        + tone_raw * w_tone
-        + completeness_raw * w_completeness
+    # Weighted total (before penalties)
+    weighted = (
+        correctness * w_correctness
+        + tone * w_tone
+        + completeness * w_completeness
     )
 
-    # Apply penalties — clamped to strict (0, 1)
-    total = _clamp(weighted + penalties)
+    # Apply penalties — normalize_score guarantees strict (0, 1)
+    total = normalize_score(weighted + penalties)
+
+    # The efficiency field re-uses the weighted pre-penalty score
+    efficiency = normalize_score(weighted)
+
+    # Debug logging
+    print(f"[DEBUG] correctness={correctness:.4f} tone={tone:.4f} "
+          f"completeness={completeness:.4f} weighted={weighted:.4f} "
+          f"penalties={penalties:.4f} total={total:.4f}")
 
     # Build explanation
     parts = []
-    parts.append(f"Correctness: {correctness_raw:.2f} (weight={w_correctness:.2f})")
-    parts.append(f"Tone: {tone_raw:.2f} (weight={w_tone:.2f})")
-    parts.append(f"Completeness: {completeness_raw:.2f} (weight={w_completeness:.2f})")
+    parts.append(f"Correctness: {correctness:.4f} (weight={w_correctness:.2f})")
+    parts.append(f"Tone: {tone:.4f} (weight={w_tone:.2f})")
+    parts.append(f"Completeness: {completeness:.4f} (weight={w_completeness:.2f})")
     if penalties < 0:
-        parts.append(f"Penalties: {penalties:.2f}")
-    parts.append(f"Total: {total:.2f}")
+        parts.append(f"Penalties: {penalties:.4f}")
+    parts.append(f"Total: {total:.4f}")
 
     return RewardBreakdown(
-        correctness=round(correctness_raw, 4),
-        tone=round(tone_raw, 4),
-        completeness=round(completeness_raw, 4),
-        efficiency=round(weighted, 4),
+        correctness=normalize_score(correctness),
+        tone=normalize_score(tone),
+        completeness=normalize_score(completeness),
+        efficiency=normalize_score(efficiency),
         penalties=round(penalties, 4),
-        total=round(total, 4),
+        total=normalize_score(total),
         explanation=" | ".join(parts),
     )

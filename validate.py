@@ -82,7 +82,7 @@ def validate_task(env: CustomerSupportEnvironment, task_id: str, responses: list
     return {
         "task_id": task_id,
         "rewards": rewards,
-        "avg_reward": max(0.01, min(0.99, sum(rewards) / len(rewards))) if rewards else 0.01,
+        "avg_reward": max(0.0001, min(0.9999, sum(rewards) / len(rewards))) if rewards else 0.5,
         "steps": len(rewards),
     }
 
@@ -209,7 +209,7 @@ def main():
         print(f"  ✓ {r['task_id']:20s} → avg_reward={r['avg_reward']:.4f} steps={r['steps']}")
         total_avg += r['avg_reward']
     overall = total_avg / len(all_results) if all_results else 0.01
-    overall = max(0.01, min(0.99, overall))
+    overall = max(0.0001, min(0.9999, overall))
     print(f"\n  Overall Score: {overall:.4f}")
     print(f"\n  ✅ ALL VALIDATIONS PASSED!")
     return 0

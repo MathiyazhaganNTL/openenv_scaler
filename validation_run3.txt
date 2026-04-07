@@ -1,0 +1,83 @@
+﻿==================================================
+  Customer Support Environment ΓÇö Validation
+==================================================
+
+==================================================
+  Validating: easy_faq
+==================================================
+  Γ£ô reset() returned valid SupportObservation
+    Customer: Sarah Johnson
+    Subject:  Where is my order?
+    Message:  Hi, I placed an order about a week ago for Wireless Bluetoot...
+  Γ£ô state() returned valid SupportState
+[DEBUG] correctness=0.9999 tone=0.5667 completeness=0.9999 weighted=0.8699 penalties=-0.2000 total=0.6699
+[DEBUG] environment.step: raw_total=0.669930 step_reward=0.669930
+  Γ£ô step(1) ΓåÆ reward=0.6699 | correctness=1.00 tone=0.57 completeness=1.00 done=True
+  Γ£ô Final state: steps=1, reward=0.6699
+
+==================================================
+  Validating: medium_refund
+==================================================
+  Γ£ô reset() returned valid SupportObservation
+    Customer: Michael Chen
+    Subject:  Refund for opened laptop bag
+    Message:  I bought a Premium Leather Laptop Bag two weeks ago and I've...
+  Γ£ô state() returned valid SupportState
+[DEBUG] correctness=0.8000 tone=0.6714 completeness=0.9999 weighted=0.8314 penalties=-0.2000 total=0.6314
+[DEBUG] environment.step: raw_total=0.631394 step_reward=0.631394
+  Γ£ô step(1) ΓåÆ reward=0.6314 | correctness=0.80 tone=0.67 completeness=1.00 done=False
+[DEBUG] correctness=0.9999 tone=0.5571 completeness=0.7500 weighted=0.7796 penalties=-0.2000 total=0.5796
+[DEBUG] environment.step: raw_total=0.579608 step_reward=0.579608
+  Γ£ô step(2) ΓåÆ reward=0.5796 | correctness=1.00 tone=0.56 completeness=0.75 done=False
+[DEBUG] correctness=0.5000 tone=0.6143 completeness=0.9999 weighted=0.7093 penalties=-0.2000 total=0.5093
+[DEBUG] environment.step: raw_total=0.509251 step_reward=0.509251
+  Γ£ô step(3) ΓåÆ reward=0.5093 | correctness=0.50 tone=0.61 completeness=1.00 done=True
+  Γ£ô Final state: steps=3, reward=1.7203
+
+==================================================
+  Validating: hard_escalation
+==================================================
+  Γ£ô reset() returned valid SupportObservation
+    Customer: David Martinez
+    Subject:  TERRIBLE experience ΓÇö wrong item, late delivery, rude staff
+    Message:  I am FURIOUS. I ordered a Smart Home Security Camera System ...
+  Γ£ô state() returned valid SupportState
+[DEBUG] correctness=0.4000 tone=0.6600 completeness=0.6500 weighted=0.5790 penalties=-0.2000 total=0.3790
+[DEBUG] environment.step: raw_total=0.379000 step_reward=0.379000
+  Γ£ô step(1) ΓåÆ reward=0.3790 | correctness=0.40 tone=0.66 completeness=0.65 done=False
+[DEBUG] correctness=0.6000 tone=0.5800 completeness=0.5700 weighted=0.5830 penalties=-0.2000 total=0.3830
+[DEBUG] environment.step: raw_total=0.383000 step_reward=0.383000
+  Γ£ô step(2) ΓåÆ reward=0.3830 | correctness=0.60 tone=0.58 completeness=0.57 done=False
+[DEBUG] correctness=0.6000 tone=0.5000 completeness=0.6000 weighted=0.5600 penalties=-0.2000 total=0.3600
+[DEBUG] environment.step: raw_total=0.360000 step_reward=0.360000
+  Γ£ô step(3) ΓåÆ reward=0.3600 | correctness=0.60 tone=0.50 completeness=0.60 done=False
+[DEBUG] correctness=0.6000 tone=0.5000 completeness=0.4000 weighted=0.5000 penalties=-0.2000 total=0.3000
+[DEBUG] environment.step: raw_total=0.300000 step_reward=0.300000
+  Γ£ô step(4) ΓåÆ reward=0.3000 | correctness=0.60 tone=0.50 completeness=0.40 done=True
+  Γ£ô Final state: steps=4, reward=1.4220
+
+==================================================
+  Validating: Grader Variance
+==================================================
+[DEBUG] correctness=0.9999 tone=0.5667 completeness=0.9999 weighted=0.8699 penalties=-0.2000 total=0.6699
+[DEBUG] environment.step: raw_total=0.669930 step_reward=0.669930
+[DEBUG] correctness=0.0001 tone=0.4000 completeness=0.0001 weighted=0.1201 penalties=-0.4000 total=0.0001
+[DEBUG] environment.step: raw_total=0.000100 step_reward=0.000100
+[DEBUG] correctness=0.0001 tone=0.5000 completeness=0.0001 weighted=0.1501 penalties=-0.5000 total=0.0001
+[DEBUG] environment.step: raw_total=0.000100 step_reward=0.000100
+  Good response reward:       0.6699
+  Bad response reward:        0.0001
+  Irrelevant response reward: 0.0001
+  Γ£ô Grader produces varying scores (NOT constant)
+  Γ£ô Good > Bad > Irrelevant ordering confirmed
+
+==================================================
+  VALIDATION SUMMARY
+==================================================
+  Γ£ô easy_faq             ΓåÆ avg_reward=0.6699 steps=1
+  Γ£ô medium_refund        ΓåÆ avg_reward=0.5734 steps=3
+  Γ£ô hard_escalation      ΓåÆ avg_reward=0.3555 steps=4
+
+  Overall Score: 0.5329
+
+  Γ£à ALL VALIDATIONS PASSED!
