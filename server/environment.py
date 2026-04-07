@@ -155,7 +155,8 @@ class CustomerSupportEnvironment:
             conversation_history=[m.model_dump() for m in self._conversation],
         )
 
-        step_reward = reward_breakdown.total
+        # Clamp step reward to strict (0, 1) — never exactly 0.0 or 1.0
+        step_reward = max(0.01, min(0.99, reward_breakdown.total))
         self._cumulative_reward += step_reward
         self._state.cumulative_reward = self._cumulative_reward
         self._state.reward_history.append(reward_breakdown)
@@ -193,10 +194,11 @@ class CustomerSupportEnvironment:
                 )
             )
 
-        # Compute final score as average reward over all steps
+        # Compute average reward — clamped to strict (0, 1)
         avg_reward = self._cumulative_reward / self._state.step_count
+        avg_reward = max(0.01, min(0.99, avg_reward))
 
-        # Build info dict
+        # Build info dict — all scores strictly in (0, 1)
         info = {
             "reward_breakdown": reward_breakdown.model_dump(),
             "step_reward": step_reward,

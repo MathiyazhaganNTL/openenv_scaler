@@ -61,7 +61,7 @@ def validate_task(env: CustomerSupportEnvironment, task_id: str, responses: list
         assert isinstance(reward, float), f"step() reward must be float, got {type(reward)}"
         assert isinstance(done, bool), f"step() done must be bool, got {type(done)}"
         assert isinstance(info, dict), f"step() info must be dict, got {type(info)}"
-        assert 0.0 <= reward <= 1.0, f"Reward {reward} out of [0.0, 1.0] range"
+        assert 0.0 < reward < 1.0, f"Reward {reward} out of strict (0.0, 1.0) range"
 
         rewards.append(reward)
         breakdown = info.get("reward_breakdown", {})
@@ -82,7 +82,7 @@ def validate_task(env: CustomerSupportEnvironment, task_id: str, responses: list
     return {
         "task_id": task_id,
         "rewards": rewards,
-        "avg_reward": sum(rewards) / len(rewards) if rewards else 0.0,
+        "avg_reward": max(0.01, min(0.99, sum(rewards) / len(rewards))) if rewards else 0.01,
         "steps": len(rewards),
     }
 
@@ -208,7 +208,8 @@ def main():
     for r in all_results:
         print(f"  ✓ {r['task_id']:20s} → avg_reward={r['avg_reward']:.4f} steps={r['steps']}")
         total_avg += r['avg_reward']
-    overall = total_avg / len(all_results) if all_results else 0.0
+    overall = total_avg / len(all_results) if all_results else 0.01
+    overall = max(0.01, min(0.99, overall))
     print(f"\n  Overall Score: {overall:.4f}")
     print(f"\n  ✅ ALL VALIDATIONS PASSED!")
     return 0
