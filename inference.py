@@ -9,7 +9,7 @@ Environment Variables:
     MODEL_NAME        — Model to use (default: gpt-3.5-turbo)
     HF_TOKEN          — Hugging Face token (no default)
     LOCAL_IMAGE_NAME  — Optional: local Docker image name when using from_docker_image()
-    ENV_BASE_URL      — Base URL for the environment server (default: http://localhost:8000)
+    ENV_BASE_URL      — Base URL for the environment server (default: http://localhost:7860)
 
 Usage:
     python inference.py
@@ -36,8 +36,15 @@ if sys.stderr.encoding != "utf-8":
     except Exception:
         pass
 
-import requests
-from openai import OpenAI
+try:
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 # ──────────────────────────────────────────────────────────────────
 # Configuration  (checklist-compliant env var declarations)
@@ -53,7 +60,7 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 # Optional — only needed when using from_docker_image()
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
-ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000")
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:7860")
 
 # Resolve API key: prefer HF_TOKEN, fall back to empty string
 _api_key = HF_TOKEN or ""
@@ -72,10 +79,13 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────
 
 # Initialise the OpenAI-compatible client once at module level
-_llm_client = OpenAI(
-    api_key=_api_key,
-    base_url=API_BASE_URL,
-)
+try:
+    _llm_client = OpenAI(
+        api_key=_api_key,
+        base_url=API_BASE_URL,
+    ) if OpenAI else None
+except Exception:
+    _llm_client = None
 
 
 def call_llm(
@@ -91,6 +101,9 @@ def call_llm(
         The assistant's response text.
     """
     max_retries = 5
+    if _llm_client is None:
+        logger.error("[ERROR] LLM client not initialized (missing openai package or init failed)")
+        return "I apologize for the inconvenience. Let me look into this for you right away."
     for attempt in range(max_retries):
         try:
             completion = _llm_client.chat.completions.create(

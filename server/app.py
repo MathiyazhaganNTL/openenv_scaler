@@ -166,7 +166,7 @@ def get_state():
 def main():
     """Run the server directly."""
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 7860))
     host = os.environ.get("HOST", "0.0.0.0")
     uvicorn.run(app, host=host, port=port)
 

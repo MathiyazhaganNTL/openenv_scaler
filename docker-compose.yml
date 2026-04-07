@@ -6,11 +6,11 @@ services:
     build: .
     image: openenv-scaler:latest
     ports:
-      - "8000:8000"
+      - "7860:7860"
     environment:
-      - PORT=8000
+      - PORT=7860
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -24,4 +24,4 @@ services:
         condition: service_healthy
     command: ["bash", "/app/verify.sh"]
     environment:
-      - ENV_BASE_URL=http://server:8000
+      - ENV_BASE_URL=http://server:7860

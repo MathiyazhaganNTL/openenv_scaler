@@ -25,7 +25,7 @@ echo "✓ Environment validation complete."
 echo ""
 echo "Step 3/3: Running 'openenv validate'..."
 # This ensures the manifest (openenv.yaml) matches the app
-export PORT=8000
+export PORT=7860
 openenv validate || echo "⚠️ 'openenv validate' failed or is not available. Skipping."
 
 echo ""
