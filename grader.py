@@ -6,13 +6,23 @@ Evaluates agent responses on three axes:
   - Tone         (positive vs. negative signal detection)
   - Completeness (checklist of required response elements)
 
-Returns a RewardBreakdown with a total score in [0.0, 1.0].
+Returns a RewardBreakdown with a total score in (0.0, 1.0) — strict open interval.
 """
 
 import re
 from typing import Any, Dict, List
 
 from models import RewardBreakdown
+
+
+# Strict open-interval clamp: scores must never be exactly 0.0 or 1.0
+_SCORE_MIN = 0.01
+_SCORE_MAX = 0.99
+
+
+def _clamp(value: float, lo: float = _SCORE_MIN, hi: float = _SCORE_MAX) -> float:
+    """Clamp *value* into the strict open interval (0, 1)."""
+    return max(lo, min(hi, float(value)))
 
 
 def _normalise(text: str) -> str:
@@ -293,23 +303,23 @@ def grade_response(
         conversation_history: Previous messages
 
     Returns:
-        RewardBreakdown with scores in [0.0, 1.0] and explanation
+        RewardBreakdown with scores in strict (0.0, 1.0) open interval
     """
-    # Score each axis
-    correctness_raw = _score_correctness(
+    # Score each axis and clamp to strict (0, 1)
+    correctness_raw = _clamp(_score_correctness(
         response,
         grading_rubric.get("correctness", {}),
-    )
-    tone_raw = _score_tone(
+    ))
+    tone_raw = _clamp(_score_tone(
         response,
         grading_rubric.get("tone", {}),
-    )
-    completeness_raw = _score_completeness(
+    ))
+    completeness_raw = _clamp(_score_completeness(
         response,
         grading_rubric.get("completeness", {}),
         ticket_info,
         conversation_history,
-    )
+    ))
 
     # Get weights
     w_correctness = grading_rubric.get("correctness", {}).get("weight", 0.33)
@@ -319,15 +329,15 @@ def grade_response(
     # Compute penalties
     penalties = _compute_penalties(response, conversation_history)
 
-    # Weighted total (before penalties)
-    weighted = (
+    # Weighted total (before penalties) — clamped
+    weighted = _clamp(
         correctness_raw * w_correctness
         + tone_raw * w_tone
         + completeness_raw * w_completeness
     )
 
-    # Apply penalties
-    total = max(0.01, min(0.99, weighted + penalties))
+    # Apply penalties — clamped to strict (0, 1)
+    total = _clamp(weighted + penalties)
 
     # Build explanation
     parts = []

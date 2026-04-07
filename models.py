@@ -132,24 +132,24 @@ class SupportObservation(BaseModel):
 class RewardBreakdown(BaseModel):
     """Detailed breakdown of the reward score."""
     correctness: float = Field(
-        default=0.0,
-        ge=0.0, le=1.0,
-        description="Score for factual correctness (0.0-1.0)",
+        default=0.01,
+        gt=0.0, lt=1.0,
+        description="Score for factual correctness — strict (0, 1)",
     )
     tone: float = Field(
-        default=0.0,
-        ge=0.0, le=1.0,
-        description="Score for professional tone (0.0-1.0)",
+        default=0.01,
+        gt=0.0, lt=1.0,
+        description="Score for professional tone — strict (0, 1)",
     )
     completeness: float = Field(
-        default=0.0,
-        ge=0.0, le=1.0,
-        description="Score for response completeness (0.0-1.0)",
+        default=0.01,
+        gt=0.0, lt=1.0,
+        description="Score for response completeness — strict (0, 1)",
     )
     efficiency: float = Field(
-        default=0.0,
-        ge=0.0, le=1.0,
-        description="Score for resolution efficiency (0.0-1.0)",
+        default=0.01,
+        gt=0.0, lt=1.0,
+        description="Score for resolution efficiency — strict (0, 1)",
     )
     penalties: float = Field(
         default=0.0,
@@ -157,9 +157,9 @@ class RewardBreakdown(BaseModel):
         description="Penalty deductions (negative value)",
     )
     total: float = Field(
-        default=0.0,
-        ge=0.0, le=1.0,
-        description="Overall weighted score (0.0-1.0)",
+        default=0.01,
+        gt=0.0, lt=1.0,
+        description="Overall weighted score — strict (0, 1)",
     )
     explanation: str = Field(
         default="",
@@ -200,6 +200,6 @@ class SupportState(BaseModel):
 class StepResult(BaseModel):
     """Result returned from step(), matching OpenEnv convention."""
     observation: SupportObservation
-    reward: float = Field(ge=0.0, le=1.0)
+    reward: float = Field(gt=0.0, lt=1.0)
     done: bool
     info: Dict[str, Any] = Field(default_factory=dict)

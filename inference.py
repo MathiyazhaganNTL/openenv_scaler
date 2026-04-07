@@ -323,8 +323,9 @@ def run_task(env_client: EnvClient, task_id: str) -> Dict[str, Any]:
             f"done={done}"
         )
 
-    # Compute average reward for this task
+    # Compute average reward for this task — clamped to strict (0, 1)
     avg_reward = total_reward / max(step_count, 1)
+    avg_reward = max(0.01, min(0.99, avg_reward))
     elapsed = time.time() - start_time
 
     logger.info(
@@ -411,7 +412,8 @@ def main():
         )
         total_avg += r.get("avg_reward", 0)
 
-    final_score = total_avg / len(results) if results else 0.0
+    final_score = total_avg / len(results) if results else 0.01
+    final_score = max(0.01, min(0.99, final_score))  # strict (0, 1)
     logger.info("-" * 60)
     logger.info(f"  FINAL SCORE: {final_score:.4f} (0.0 -- 1.0)")
     logger.info("=" * 60)
