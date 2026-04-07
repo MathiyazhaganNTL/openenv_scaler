@@ -8,7 +8,7 @@
 #   docker run -p 7860:7860 customer-support-env
 # ──────────────────────────────────────────────────────────────
 
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # Prevent Python from writing .pyc files and enable stdout/stderr buffering
 ENV PYTHONDONTWRITEBYTECODE=1 \
