@@ -1,0 +1,2 @@
+﻿origin	https://github.com/MathiyazhaganNTL/openenv_scaler.git (fetch)
+origin	https://github.com/MathiyazhaganNTL/openenv_scaler.git (push)
