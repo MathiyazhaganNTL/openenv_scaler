@@ -327,7 +327,7 @@ def grade_response(
     )
 
     # Apply penalties
-    total = max(0.0, min(1.0, weighted + penalties))
+    total = max(0.01, min(0.99, weighted + penalties))
 
     # Build explanation
     parts = []

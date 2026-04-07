@@ -388,8 +388,8 @@ def main():
             results.append({
                 "task_id": task_id,
                 "steps": 0,
-                "total_reward": 0.0,
-                "avg_reward": 0.0,
+                "total_reward": 0.01,
+                "avg_reward": 0.01,
                 "elapsed": 0.0,
                 "error": str(e),
             })
