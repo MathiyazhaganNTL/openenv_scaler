@@ -25,9 +25,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from models import SupportAction, SupportObservation, SupportState, safe_score
-from server.environment import CustomerSupportEnvironment
-from tasks import TASK_IDS, TASKS
+from models import SupportAction, SupportObservation, SupportState, safe_score  # type: ignore
+from server.environment import CustomerSupportEnvironment  # type: ignore
+from tasks import TASK_IDS, TASKS  # type: ignore
 
 
 # ──────────────────────────────────────────────────────────────────
