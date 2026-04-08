@@ -160,6 +160,9 @@ class CustomerSupportEnvironment:
             grading_rubric=self._task["grading_rubric"],
             ticket_info=self._task["ticket"],
             conversation_history=[m.model_dump() for m in self._conversation],
+            action_type=action.action_type,
+            step_count=self._state.step_count,
+            max_steps=self._state.max_steps,
         )
 
         # Clamp step reward to strict (0, 1) — safe_score guarantees this
@@ -217,7 +220,7 @@ class CustomerSupportEnvironment:
         info = {
             "reward_breakdown": rb_dict,
             "step_reward": step_reward,
-            "cumulative_reward": self._cumulative_reward,
+            "cumulative_reward": safe_score(self._cumulative_reward / self._state.step_count),
             "average_reward": avg_reward,
             "steps_taken": self._state.step_count,
             "task_id": self._state.task_id,
@@ -264,7 +267,7 @@ class CustomerSupportEnvironment:
             max_steps=self._state.max_steps,
             steps_remaining=self._state.max_steps - self._state.step_count,
             done=self._state.done,
-            reward=self._cumulative_reward,
+            reward=safe_score(self._cumulative_reward / max(self._state.step_count, 1)),
         )
 
     def _generate_contextual_reply(self, action: SupportAction) -> str:

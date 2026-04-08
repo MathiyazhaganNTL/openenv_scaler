@@ -1,10 +1,16 @@
 """
 Deterministic grading engine for the Customer Support Environment.
 
-Evaluates agent responses on three axes:
-  - Correctness  (keyword / concept matching)
-  - Tone         (positive vs. negative signal detection)
-  - Completeness (checklist of required response elements)
+Follows the reference additive scoring pattern:
+  - Category/keyword correctness  (+0.3)
+  - Empathy detection             (+0.1 / +0.2)
+  - Angry customer strict rule    (-0.25)
+  - Anti-generic response penalty (-0.1)
+  - Helpfulness detection         (+0.3)
+  - Repetition penalty            (-0.2)
+  - Escalation penalty            (-0.1)
+  - Resolution bonus              (+0.2)
+  - Efficiency bonus              (+0.1 * remaining steps)
 
 Returns a RewardBreakdown with a total score in (0.0, 1.0) — strict open interval.
 
@@ -27,328 +33,135 @@ def _normalise(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
-# ──────────────────────────────────────────────────────────────────
-# Correctness scorer
-# ──────────────────────────────────────────────────────────────────
-
-def _score_correctness(
-    response: str,
-    rubric: Dict[str, Any],
-) -> float:
-    """Score based on presence of expected keyword groups.
-
-    Returns a value in (0, 1) — never 0.0 or 1.0.
-    """
-    norm = _normalise(response)
-    criteria = rubric.get("criteria", [])
-    if not criteria:
-        return safe_score(0.1)
-
-    total = 0.0
-    for criterion in criteria:
-        kw_group: List[str] = criterion.get("keyword_group", [])
-        points: float = criterion.get("points", 0.0)
-        if any(kw.lower() in norm for kw in kw_group):
-            total += points
-
-    return safe_score(total)
-
-
-# ──────────────────────────────────────────────────────────────────
-# Tone scorer
-# ──────────────────────────────────────────────────────────────────
-
-def _score_tone(
-    response: str,
-    rubric: Dict[str, Any],
-) -> float:
-    """
-    Score tone based on positive and negative signal presence.
-    Start at 0.5, boost for positive signals, penalize for negative signals.
-
-    Returns a value in (0, 1) — never 0.0 or 1.0.
-    """
-    norm = _normalise(response)
-    criteria = rubric.get("criteria", {})
-
-    positive_signals: List[str] = criteria.get("positive_signals", [])
-    negative_signals: List[str] = criteria.get("negative_signals", [])
-
-    pos_count = sum(1 for sig in positive_signals if sig.lower() in norm)
-    neg_count = sum(1 for sig in negative_signals if sig.lower() in norm)
-
-    score = 0.5
-
-    if positive_signals:
-        pos_ratio = pos_count / len(positive_signals)
-        score += pos_ratio * 0.4
-
-    if neg_count > 0:
-        score -= min(neg_count * 0.2, 0.4)
-
-    word_count = len(norm.split())
-    if word_count < 10:
-        score -= 0.1
-
-    upper_ratio = sum(1 for c in response if c.isupper()) / max(len(response), 1)
-    if upper_ratio > 0.4 and len(response) > 20:
-        score -= 0.05
-
-    return safe_score(score)
-
-
-# ──────────────────────────────────────────────────────────────────
-# Completeness scorer
-# ──────────────────────────────────────────────────────────────────
-
-def _score_completeness(
-    response: str,
-    rubric: Dict[str, Any],
-    ticket_info: Dict[str, Any],
-    conversation_history: List[Dict[str, Any]],
-) -> float:
-    """Score based on completeness checklist.
-
-    Returns a value in (0, 1) — never 0.0 or 1.0.
-    """
-    norm = _normalise(response)
-    criteria = rubric.get("criteria", [])
-    if not criteria:
-        return safe_score(0.1)
-
-    total = 0.0
-    for criterion in criteria:
-        check = criterion.get("check", "")
-        points = criterion.get("points", 0.0)
-
-        if check == "addresses_question" or check == "addresses_defect":
-            subject = _normalise(ticket_info.get("subject", ""))
-            subject_words = [w for w in subject.split() if len(w) > 3]
-            if any(w in norm for w in subject_words) or len(norm.split()) > 20:
-                total += points
-
-        elif check == "provides_next_steps":
-            step_indicators = [
-                "will", "can", "please", "next step", "process",
-                "we'll", "i'll", "going to", "let me", "i can",
-                "here's what", "here is what", "follow up",
-            ]
-            if any(ind in norm for ind in step_indicators):
-                total += points
-
-        elif check == "references_order":
-            order_id = ticket_info.get("order_id", "")
-            if order_id and order_id.lower() in norm:
-                total += points
-            elif "order" in norm:
-                total += points * 0.5
-
-        elif check == "explains_policy":
-            policy_terms = [
-                "policy", "within", "days", "eligible", "qualify",
-                "terms", "condition", "guideline",
-            ]
-            if sum(1 for t in policy_terms if t in norm) >= 2:
-                total += points
-
-        elif check == "provides_process":
-            process_terms = [
-                "step", "first", "then", "send", "ship", "return",
-                "label", "process", "receive", "refund",
-            ]
-            if sum(1 for t in process_terms if t in norm) >= 3:
-                total += points
-
-        elif check == "offers_options":
-            option_indicators = ["or", "option", "alternative", "either", "choose", "prefer"]
-            if any(ind in norm for ind in option_indicators):
-                total += points
-
-        elif check == "acknowledges_all_issues":
-            issues_to_address = ["wrong", "late", "delay", "rude", "staff", "agent"]
-            addressed = sum(1 for iss in issues_to_address if iss in norm)
-            if addressed >= 3:
-                total += points
-            elif addressed >= 2:
-                total += points * 0.6
-            elif addressed >= 1:
-                total += points * 0.3
-
-        elif check == "concrete_resolution":
-            concrete_terms = [
-                "refund", "replacement", "ship", "send", "credit",
-                "discount", "expedite", "priority", "immediately",
-                "right away", "today",
-            ]
-            if sum(1 for t in concrete_terms if t in norm) >= 2:
-                total += points
-
-        elif check == "timeline":
-            time_patterns = [
-                r"\d+\s*(hour|day|week|business day)",
-                r"within\s+\d+",
-                r"by\s+(end of|tomorrow|today)",
-                r"immediately",
-                r"right away",
-                r"asap",
-                r"as soon as",
-            ]
-            if any(re.search(pat, norm) for pat in time_patterns):
-                total += points
-
-        elif check == "empathy":
-            empathy_terms = [
-                "understand", "frustrat", "sorry", "apologize",
-                "inconvenience", "disappoint", "concern",
-                "appreciate your patience", "i hear you",
-            ]
-            if sum(1 for t in empathy_terms if t in norm) >= 2:
-                total += points
-
-        elif check == "follow_up_plan":
-            follow_up_terms = [
-                "follow up", "follow-up", "check back", "update you",
-                "keep you informed", "contact you", "reach out",
-                "email you", "confirmation",
-            ]
-            if any(t in norm for t in follow_up_terms):
-                total += points
-
-    return safe_score(total)
-
-
-# ──────────────────────────────────────────────────────────────────
-# Penalty computation
-# ──────────────────────────────────────────────────────────────────
-
-def _compute_penalties(
-    response: str,
-    conversation_history: List[Dict[str, Any]],
-) -> float:
-    """
-    Compute penalties for bad behaviours.
-    Returns a negative value in [-0.5, 0.0].
-    """
-    norm = _normalise(response)
-    penalty = 0.0
-
-    if len(norm.split()) < 5:
-        penalty -= 0.2
-
-    if conversation_history:
-        prev_agent_msgs = [
-            _normalise(m.get("content", ""))
-            for m in conversation_history
-            if m.get("role") == "agent"
-        ]
-        for prev in prev_agent_msgs:
-            if prev and norm == prev:
-                penalty -= 0.2
-                break
-            elif prev and len(prev) > 20 and prev in norm:
-                penalty -= 0.1
-                break
-
-    harmful_patterns = [
-        "kill", "die", "hate you", "shut up", "idiot",
-        "moron", "loser", "go away",
-    ]
-    if any(pat in norm for pat in harmful_patterns):
-        penalty -= 0.3
-
-    irrelevant_signals = [
-        "weather", "recipe", "joke", "game score",
-        "political", "stock market",
-    ]
-    if sum(1 for s in irrelevant_signals if s in norm) >= 2:
-        penalty -= 0.3
-
-    return max(-0.5, penalty)
-
-
-# ──────────────────────────────────────────────────────────────────
-# Main grading function
-# ──────────────────────────────────────────────────────────────────
-
 def grade_response(
     response: str,
     grading_rubric: Dict[str, Any],
     ticket_info: Dict[str, Any],
     conversation_history: List[Dict[str, Any]],
+    action_type: str = "respond",
+    step_count: int = 0,
+    max_steps: int = 5,
 ) -> RewardBreakdown:
     """
-    Grade an agent response and return a detailed RewardBreakdown.
+    Grade an agent response using the reference additive scoring pattern.
 
     Args:
         response: The agent's response text
         grading_rubric: Task-specific grading criteria
         ticket_info: Ticket metadata
         conversation_history: Previous messages
+        action_type: 'respond', 'escalate', or 'resolve'
+        step_count: Current step number (1-indexed, already incremented)
+        max_steps: Maximum allowed steps for this task
 
     Returns:
         RewardBreakdown with ALL scores in strict (0.0, 1.0) open interval.
-        The RewardBreakdown model auto-clamps all score fields via validators.
     """
-    # Score each axis — safe_score guarantees (0, 1)
-    correctness = safe_score(_score_correctness(
-        response,
-        grading_rubric.get("correctness", {}),
-    ))
-    tone = safe_score(_score_tone(
-        response,
-        grading_rubric.get("tone", {}),
-    ))
-    completeness = safe_score(_score_completeness(
-        response,
-        grading_rubric.get("completeness", {}),
-        ticket_info,
-        conversation_history,
-    ))
+    score = 0.0
+    metrics: Dict[str, float] = {}
+    norm = _normalise(response)
 
-    # Get weights
-    w_correctness = grading_rubric.get("correctness", {}).get("weight", 0.33)
-    w_tone = grading_rubric.get("tone", {}).get("weight", 0.33)
-    w_completeness = grading_rubric.get("completeness", {}).get("weight", 0.34)
+    # ── 1. Correct category / keyword extraction (+0.3) ──
+    correctness_criteria = grading_rubric.get("correctness", {}).get("criteria", [])
+    correctness_hit = False
+    for criterion in correctness_criteria:
+        kw_group: List[str] = criterion.get("keyword_group", [])
+        if any(kw.lower() in norm for kw in kw_group):
+            correctness_hit = True
+            break
+    if correctness_hit:
+        score += 0.3
+        metrics["category_correct"] = 0.3
 
-    # Compute penalties (capped at -0.5)
-    penalties = _compute_penalties(response, conversation_history)
+    # ── 2. Empathy check (+0.1 neutral, +0.2 angry/frustrated) ──
+    sentiment = ticket_info.get("customer_sentiment", "neutral")
+    empathy_words = ["sorry", "apologize", "understand", "help"]
+    if any(word in norm for word in empathy_words):
+        empathy_score = 0.2 if sentiment in ["angry", "frustrated"] else 0.1
+        score += empathy_score
+        metrics["empathy"] = empathy_score
 
-    # Weighted total (before penalties)
-    weighted = (
-        correctness * w_correctness
-        + tone * w_tone
-        + completeness * w_completeness
+    # ── 3. Angry customer strict rule (-0.25) ──
+    if sentiment == "angry" and not any(
+        w in norm for w in ["sorry", "apologize", "understand"]
+    ):
+        score -= 0.25
+        metrics["angry_penalty"] = -0.25
+
+    # ── 4. Anti-generic response penalty (-0.1) ──
+    generic_phrases = ["i will help you", "let me help", "i understand your issue"]
+    if any(phrase in norm for phrase in generic_phrases) and len(response) < 60:
+        score -= 0.1
+        metrics["generic_penalty"] = -0.1
+
+    # ── 5. Helpfulness check (+0.3) ──
+    helpful_words = [
+        "step", "fix", "update", "here is", "resolved",
+        "refund", "replacement", "process", "ship", "send",
+        "return", "credit", "track", "label",
+    ]
+    if any(word in norm for word in helpful_words):
+        score += 0.3
+        metrics["helpfulness"] = 0.3
+
+    # ── 6. Repetition penalty (-0.2) ──
+    past_responses = [
+        msg.get("content", "").lower()
+        for msg in conversation_history
+        if msg.get("role") == "agent"
+    ]
+    if norm in past_responses:
+        score -= 0.2
+        metrics["repetition_penalty"] = -0.2
+
+    # ── 7. Escalation penalty (-0.1) ──
+    if action_type == "escalate":
+        score -= 0.1
+        metrics["escalation_penalty"] = -0.1
+
+    # ── 8. Resolution bonus (+0.2) & Efficiency bonus ──
+    if action_type == "resolve":
+        score += 0.2
+        metrics["resolution_bonus"] = 0.2
+
+        # Efficiency bonus: reward resolving in fewer steps
+        if step_count < max_steps:
+            efficiency_bonus = round(0.1 * (max_steps - step_count), 4)
+            score += efficiency_bonus
+            metrics["efficiency_bonus"] = efficiency_bonus
+
+    # ── Final score — STRICT (0, 1) via safe_score ──
+    final_score = safe_score(score)
+
+    # Map metrics to RewardBreakdown fields
+    correctness_val = safe_score(metrics.get("category_correct", 0.0))
+    tone_val = safe_score(
+        metrics.get("empathy", 0.0)
+        + metrics.get("angry_penalty", 0.0)
+        + metrics.get("generic_penalty", 0.0)
+        + 0.3  # base tone
     )
-
-    # Apply penalties — safe_score guarantees strict (0, 1)
-    total = safe_score(weighted + penalties)
-
-    # The efficiency field re-uses the weighted pre-penalty score
-    efficiency = safe_score(weighted)
-
-    # Debug logging
-    logger.info(
-        f"[GRADER] correctness={correctness:.4f} tone={tone:.4f} "
-        f"completeness={completeness:.4f} weighted={weighted:.4f} "
-        f"penalties={penalties:.4f} total={total:.4f}"
+    completeness_val = safe_score(
+        metrics.get("helpfulness", 0.0)
+        + metrics.get("resolution_bonus", 0.0)
     )
+    efficiency_val = safe_score(
+        metrics.get("efficiency_bonus", 0.0) + 0.2
+    )
+    penalties_total = sum(v for v in metrics.values() if v < 0)
 
     # Build explanation
-    parts = []
-    parts.append(f"Correctness: {correctness:.4f} (weight={w_correctness:.2f})")
-    parts.append(f"Tone: {tone:.4f} (weight={w_tone:.2f})")
-    parts.append(f"Completeness: {completeness:.4f} (weight={w_completeness:.2f})")
-    if penalties < 0:
-        parts.append(f"Penalties: {penalties:.4f}")
-    parts.append(f"Total: {total:.4f}")
+    parts = [f"{k}: {v:.4f}" for k, v in sorted(metrics.items())]
+    parts.append(f"Total: {final_score:.4f}")
 
-    # RewardBreakdown auto-clamps all score fields via field_validator
+    logger.info(f"[GRADER] score={final_score:.4f} metrics={metrics}")
+
     return RewardBreakdown(
-        correctness=correctness,
-        tone=tone,
-        completeness=completeness,
-        efficiency=efficiency,
-        penalties=round(penalties, 4),
-        total=total,
+        correctness=correctness_val,
+        tone=tone_val,
+        completeness=completeness_val,
+        efficiency=efficiency_val,
+        penalties=round(max(-1.0, min(0.0, penalties_total)), 4),
+        total=final_score,
         explanation=" | ".join(parts),
     )
