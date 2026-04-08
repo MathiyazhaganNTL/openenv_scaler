@@ -139,6 +139,8 @@ class CustomerSupportEnvironment:
             raise RuntimeError(
                 "Environment not initialized or episode already done. Call reset() first."
             )
+        assert self._task is not None, "Task not set. Call reset() first."
+        assert self._ticket is not None, "Ticket not set. Call reset() first."
 
         # Increment step
         self._state.step_count += 1
@@ -249,6 +251,9 @@ class CustomerSupportEnvironment:
 
     def _build_observation(self) -> SupportObservation:
         """Construct the current observation."""
+        assert self._state is not None
+        assert self._task is not None
+        assert self._ticket is not None
         return SupportObservation(
             ticket=self._ticket,
             conversation_history=list(self._conversation),
@@ -264,6 +269,7 @@ class CustomerSupportEnvironment:
 
     def _generate_contextual_reply(self, action: SupportAction) -> str:
         """Generate a contextual customer follow-up based on agent's response quality."""
+        assert self._state is not None
         last_reward = self._state.reward_history[-1] if self._state.reward_history else None
 
         if last_reward and last_reward.total >= 0.7:

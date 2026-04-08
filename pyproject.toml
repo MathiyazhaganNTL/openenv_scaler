@@ -37,4 +37,11 @@ packages = [
 ]
 
 [tool.pyright]
-extraPaths = [".", "openenv"]
+extraPaths = ["."]
+pythonVersion = "3.13"
+
+[[tool.pyright.executionEnvironments]]
+root = "."
+
+[tool.pyrefly]
+search-path = ["."]
