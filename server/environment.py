@@ -11,6 +11,7 @@ Implements the standard OpenEnv interface:
     - state()         → SupportState
 """
 
+import logging
 import sys
 import os
 from typing import Any, Dict, List, Optional, Tuple
@@ -34,9 +35,12 @@ from models import (
     TicketInfo,
     TicketPriority,
     TicketStatus,
+    safe_score,
 )
 from grader import grade_response
 from tasks import TASKS, TASK_IDS, get_task
+
+logger = logging.getLogger(__name__)
 
 
 class CustomerSupportEnvironment:
@@ -129,6 +133,7 @@ class CustomerSupportEnvironment:
 
         Returns:
             Tuple of (observation, reward, done, info).
+            reward is ALWAYS in strict (0, 1).
         """
         if self._state is None or self._state.done:
             raise RuntimeError(
@@ -155,9 +160,12 @@ class CustomerSupportEnvironment:
             conversation_history=[m.model_dump() for m in self._conversation],
         )
 
-        # Clamp step reward to strict (0, 1) — never exactly 0.0 or 1.0
-        step_reward = max(0.0001, min(0.9999, reward_breakdown.total))
-        print(f"[DEBUG] environment.step: raw_total={reward_breakdown.total:.6f} step_reward={step_reward:.6f}")
+        # Clamp step reward to strict (0, 1) — safe_score guarantees this
+        step_reward = safe_score(reward_breakdown.total)
+        logger.info(
+            f"[ENV] step: raw_total={reward_breakdown.total:.6f} "
+            f"step_reward={step_reward:.6f}"
+        )
         self._cumulative_reward += step_reward
         self._state.cumulative_reward = self._cumulative_reward
         self._state.reward_history.append(reward_breakdown)
@@ -183,7 +191,6 @@ class CustomerSupportEnvironment:
                 next_msg = follow_ups[self._follow_up_index]
                 self._follow_up_index += 1
             else:
-                # Generate a contextual customer acknowledgement
                 next_msg = self._generate_contextual_reply(action)
 
             self._current_message = next_msg
@@ -196,12 +203,17 @@ class CustomerSupportEnvironment:
             )
 
         # Compute average reward — clamped to strict (0, 1)
-        avg_reward = self._cumulative_reward / self._state.step_count
-        avg_reward = max(0.0001, min(0.9999, avg_reward))
+        avg_reward = safe_score(self._cumulative_reward / self._state.step_count)
 
         # Build info dict — all scores strictly in (0, 1)
+        # Clamp every numeric score in reward_breakdown before exposing
+        rb_dict = reward_breakdown.model_dump()
+        for key in ["correctness", "tone", "completeness", "efficiency", "total"]:
+            if key in rb_dict:
+                rb_dict[key] = safe_score(rb_dict[key])
+
         info = {
-            "reward_breakdown": reward_breakdown.model_dump(),
+            "reward_breakdown": rb_dict,
             "step_reward": step_reward,
             "cumulative_reward": self._cumulative_reward,
             "average_reward": avg_reward,

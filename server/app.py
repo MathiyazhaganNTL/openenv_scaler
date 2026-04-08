@@ -23,22 +23,11 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from models import SupportAction, SupportObservation, SupportState
+from models import SupportAction, SupportObservation, SupportState, safe_score
 from server.environment import CustomerSupportEnvironment
 from tasks import TASK_IDS, TASKS
-
-
-def _safe_score(value) -> float:
-    """Clamp any value to strict (0, 1) for evaluator safety."""
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        v = 0.5
-    if v != v or v == float('inf') or v == float('-inf'):
-        v = 0.5
-    return max(0.0001, min(0.9999, v))
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -55,10 +44,22 @@ class StepRequest(BaseModel):
 
 
 class StepResponse(BaseModel):
+    """Response from the /step endpoint.
+
+    Uses an auto-clamping validator instead of gt/lt constraints.
+    This prevents Pydantic from raising ValidationError on boundary
+    values and ensures the evaluator NEVER receives 0.0 or 1.0.
+    """
     observation: SupportObservation
-    reward: float = Field(gt=0.0, lt=1.0)
+    reward: float = Field(default=0.01, description="Step reward in strict (0, 1)")
     done: bool
     info: Dict[str, Any]
+
+    @field_validator("reward", mode="before")
+    @classmethod
+    def _clamp_reward(cls, v: Any) -> float:
+        """Auto-clamp reward to strict (0, 1)."""
+        return safe_score(v)
 
 
 class TaskInfo(BaseModel):
@@ -154,17 +155,21 @@ def step(request: StepRequest):
     """Execute an agent action and return the result."""
     try:
         obs, reward, done, info = env.step(action=request.action)
-        # Clamp reward to strict (0, 1) — evaluator rejects 0.0 or 1.0
-        safe_reward = _safe_score(reward)
+
+        # Triple-safe: clamp reward via safe_score before passing to StepResponse
+        # (StepResponse also has its own auto-clamping validator)
+        clamped_reward = safe_score(reward)
+
         # Also clamp all scores inside reward_breakdown in info
         if "reward_breakdown" in info and isinstance(info["reward_breakdown"], dict):
             rb = info["reward_breakdown"]
             for key in ["correctness", "tone", "completeness", "efficiency", "total"]:
                 if key in rb:
-                    rb[key] = _safe_score(rb[key])
+                    rb[key] = safe_score(rb[key])
+
         return StepResponse(
             observation=obs,
-            reward=safe_reward,
+            reward=clamped_reward,
             done=done,
             info=info,
         )

@@ -11,6 +11,7 @@ from .models import (
     SupportState,
     RewardBreakdown,
     StepResult,
+    safe_score,
 )
 from .server.environment import CustomerSupportEnvironment
 
@@ -21,6 +22,7 @@ __all__ = [
     "SupportState",
     "RewardBreakdown",
     "StepResult",
+    "safe_score",
 ]
 
 __version__ = "1.0.0"

@@ -5,7 +5,7 @@ Runs through all 3 tasks with deterministic responses and verifies:
   ✓ reset() returns valid SupportObservation
   ✓ step() returns (observation, reward, done, info) with correct types
   ✓ state() returns valid SupportState
-  ✓ Rewards are non-constant and in [0.0, 1.0]
+  ✓ Rewards are non-constant and in (0.0, 1.0) strict open interval
   ✓ Episodes terminate correctly
   ✓ Grader produces varying scores for different responses
 
@@ -19,7 +19,7 @@ import os
 # Ensure project root is on path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from models import SupportAction, SupportObservation, SupportState, RewardBreakdown
+from models import SupportAction, SupportObservation, SupportState, RewardBreakdown, safe_score
 from server.environment import CustomerSupportEnvironment
 from tasks import TASK_IDS
 
@@ -66,9 +66,9 @@ def validate_task(env: CustomerSupportEnvironment, task_id: str, responses: list
         rewards.append(reward)
         breakdown = info.get("reward_breakdown", {})
         print(f"  ✓ step({i+1}) → reward={reward:.4f} | "
-              f"correctness={breakdown.get('correctness', 0):.2f} "
-              f"tone={breakdown.get('tone', 0):.2f} "
-              f"completeness={breakdown.get('completeness', 0):.2f} "
+              f"correctness={safe_score(breakdown.get('correctness', 0.5)):.2f} "
+              f"tone={safe_score(breakdown.get('tone', 0.5)):.2f} "
+              f"completeness={safe_score(breakdown.get('completeness', 0.5)):.2f} "
               f"done={done}")
 
         if done:
@@ -82,7 +82,7 @@ def validate_task(env: CustomerSupportEnvironment, task_id: str, responses: list
     return {
         "task_id": task_id,
         "rewards": rewards,
-        "avg_reward": max(0.0001, min(0.9999, sum(rewards) / len(rewards))) if rewards else 0.5,
+        "avg_reward": safe_score(sum(rewards) / len(rewards)) if rewards else 0.5,
         "steps": len(rewards),
     }
 
@@ -136,6 +136,11 @@ def validate_grader_variance():
     assert good_reward > irr_reward, "Good response should score higher than irrelevant response!"
     print(f"  ✓ Grader produces varying scores (NOT constant)")
     print(f"  ✓ Good > Bad > Irrelevant ordering confirmed")
+
+    # Verify ALL rewards are strictly in (0, 1)
+    for label, r in [("good", good_reward), ("bad", bad_reward), ("irr", irr_reward)]:
+        assert 0.0 < r < 1.0, f"{label} reward {r} violates strict (0, 1)!"
+    print(f"  ✓ All rewards strictly in (0, 1) open interval")
 
 
 def main():
@@ -208,8 +213,7 @@ def main():
     for r in all_results:
         print(f"  ✓ {r['task_id']:20s} → avg_reward={r['avg_reward']:.4f} steps={r['steps']}")
         total_avg += r['avg_reward']
-    overall = total_avg / len(all_results) if all_results else 0.01
-    overall = max(0.0001, min(0.9999, overall))
+    overall = safe_score(total_avg / len(all_results)) if all_results else 0.01
     print(f"\n  Overall Score: {overall:.4f}")
     print(f"\n  ✅ ALL VALIDATIONS PASSED!")
     return 0

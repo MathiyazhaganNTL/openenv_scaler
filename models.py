@@ -3,12 +3,55 @@ Pydantic models for the Customer Support Ticket Resolution Environment.
 
 Defines the Action, Observation, State, and Reward models used for
 type-safe communication between the agent and environment.
+
+IMPORTANT: Score fields use custom validators that AUTO-CLAMP to (0, 1)
+instead of raising ValidationError. This prevents the evaluator from ever
+seeing boundary values (0.0 or 1.0).
 """
 
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# ──────────────────────────────────────────────────────────────────
+# Central safe-score utility — shared by all modules
+# ──────────────────────────────────────────────────────────────────
+
+_SCORE_FLOOR = 0.0001
+_SCORE_CEIL  = 0.9999
+
+
+def safe_score(value: Any) -> float:
+    """Clamp *any* value into the strict open interval (0, 1).
+
+    This is the SINGLE source of truth for score normalisation across
+    the entire project.  Every score must pass through this function
+    before leaving any boundary (model field, API response, JSON output).
+
+    Rules:
+        * ``None``  → 0.5  (safe default)
+        * Strings / non-numeric → 0.5
+        * NaN / ±Inf → 0.5
+        * ≤ 0  → 0.0001
+        * ≥ 1  → 0.9999
+    """
+    if value is None:
+        return 0.5
+    if isinstance(value, str):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return 0.5
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return 0.5
+    # Guard NaN / Inf
+    if v != v or v == float("inf") or v == float("-inf"):
+        return 0.5
+    return max(_SCORE_FLOOR, min(_SCORE_CEIL, v))
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -126,29 +169,30 @@ class SupportObservation(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────
-# Reward Model
+# Reward Model — uses auto-clamping validators instead of gt/lt
 # ──────────────────────────────────────────────────────────────────
 
 class RewardBreakdown(BaseModel):
-    """Detailed breakdown of the reward score."""
+    """Detailed breakdown of the reward score.
+
+    IMPORTANT: All score fields auto-clamp to strict (0, 1) via validators.
+    This prevents Pydantic from raising ValidationError on boundary values
+    and ensures the evaluator NEVER receives 0.0 or 1.0.
+    """
     correctness: float = Field(
         default=0.01,
-        gt=0.0, lt=1.0,
         description="Score for factual correctness — strict (0, 1)",
     )
     tone: float = Field(
         default=0.01,
-        gt=0.0, lt=1.0,
         description="Score for professional tone — strict (0, 1)",
     )
     completeness: float = Field(
         default=0.01,
-        gt=0.0, lt=1.0,
         description="Score for response completeness — strict (0, 1)",
     )
     efficiency: float = Field(
         default=0.01,
-        gt=0.0, lt=1.0,
         description="Score for resolution efficiency — strict (0, 1)",
     )
     penalties: float = Field(
@@ -158,13 +202,21 @@ class RewardBreakdown(BaseModel):
     )
     total: float = Field(
         default=0.01,
-        gt=0.0, lt=1.0,
         description="Overall weighted score — strict (0, 1)",
     )
     explanation: str = Field(
         default="",
         description="Human-readable explanation of the score",
     )
+
+    @field_validator(
+        "correctness", "tone", "completeness", "efficiency", "total",
+        mode="before",
+    )
+    @classmethod
+    def _clamp_score(cls, v: Any) -> float:
+        """Auto-clamp score fields to strict (0, 1)."""
+        return safe_score(v)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -194,12 +246,18 @@ class SupportState(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────
-# Step Result (matches OpenEnv convention)
+# Step Result (matches OpenEnv convention) — auto-clamps reward
 # ──────────────────────────────────────────────────────────────────
 
 class StepResult(BaseModel):
     """Result returned from step(), matching OpenEnv convention."""
     observation: SupportObservation
-    reward: float = Field(gt=0.0, lt=1.0)
+    reward: float = Field(default=0.01)
     done: bool
     info: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("reward", mode="before")
+    @classmethod
+    def _clamp_reward(cls, v: Any) -> float:
+        """Auto-clamp reward to strict (0, 1)."""
+        return safe_score(v)

@@ -37,4 +37,4 @@ packages = [
 ]
 
 [tool.pyright]
-extraPaths = ["."]
+extraPaths = [".", "openenv"]

@@ -9,43 +9,17 @@ Evaluates agent responses on three axes:
 Returns a RewardBreakdown with a total score in (0.0, 1.0) — strict open interval.
 
 IMPORTANT — Every numeric score produced by this module is passed through
-``normalize_score`` before it leaves the grader so that the evaluator NEVER
+``safe_score`` before it leaves the grader so that the evaluator NEVER
 receives a boundary value (0.0 or 1.0).
 """
 
+import logging
 import re
 from typing import Any, Dict, List
 
-from models import RewardBreakdown
+from models import RewardBreakdown, safe_score
 
-
-# ──────────────────────────────────────────────────────────────────
-# Central score normaliser — THE single source of truth
-# ──────────────────────────────────────────────────────────────────
-
-# Strict open-interval bounds: scores must never be exactly 0.0 or 1.0
-_SCORE_FLOOR = 0.0001
-_SCORE_CEIL  = 0.9999
-
-
-def normalize_score(value: Any) -> float:
-    """Clamp *value* into the strict open interval (0, 1).
-
-    * ``None``  → 0.5
-    * anything that cannot be converted to float → 0.5
-    * values ≤ 0 → ``_SCORE_FLOOR``
-    * values ≥ 1 → ``_SCORE_CEIL``
-    """
-    if value is None:
-        return 0.5
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return 0.5
-    # Guard against NaN / Inf
-    if v != v or v == float('inf') or v == float('-inf'):
-        return 0.5
-    return max(_SCORE_FLOOR, min(_SCORE_CEIL, v))
+logger = logging.getLogger(__name__)
 
 
 def _normalise(text: str) -> str:
@@ -68,18 +42,16 @@ def _score_correctness(
     norm = _normalise(response)
     criteria = rubric.get("criteria", [])
     if not criteria:
-        # No rubric → return a safe neutral score, never 0.0
-        return normalize_score(0.1)
+        return safe_score(0.1)
 
     total = 0.0
     for criterion in criteria:
         kw_group: List[str] = criterion.get("keyword_group", [])
         points: float = criterion.get("points", 0.0)
-        # Award points if ANY keyword in the group is found
         if any(kw.lower() in norm for kw in kw_group):
             total += points
 
-    return normalize_score(total)
+    return safe_score(total)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -102,33 +74,27 @@ def _score_tone(
     positive_signals: List[str] = criteria.get("positive_signals", [])
     negative_signals: List[str] = criteria.get("negative_signals", [])
 
-    # Count matches
     pos_count = sum(1 for sig in positive_signals if sig.lower() in norm)
     neg_count = sum(1 for sig in negative_signals if sig.lower() in norm)
 
-    # Base score: 0.5 (neutral)
     score = 0.5
 
-    # Each positive signal adds points (diminishing returns)
     if positive_signals:
         pos_ratio = pos_count / len(positive_signals)
-        score += pos_ratio * 0.4  # max +0.4 from positives (keeps below 1.0)
+        score += pos_ratio * 0.4
 
-    # Each negative signal deducts heavily
     if neg_count > 0:
-        score -= min(neg_count * 0.2, 0.4)  # max -0.4 from negatives (keeps above 0.0)
+        score -= min(neg_count * 0.2, 0.4)
 
-    # Additional length/quality checks
     word_count = len(norm.split())
     if word_count < 10:
-        score -= 0.1  # Too terse is often rude
+        score -= 0.1
 
-    # Check if response uses ALL CAPS excessively
     upper_ratio = sum(1 for c in response if c.isupper()) / max(len(response), 1)
     if upper_ratio > 0.4 and len(response) > 20:
-        score -= 0.05  # Shouting in response
+        score -= 0.05
 
-    return normalize_score(score)
+    return safe_score(score)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -148,8 +114,7 @@ def _score_completeness(
     norm = _normalise(response)
     criteria = rubric.get("criteria", [])
     if not criteria:
-        # No rubric → return a safe neutral score, never 0.0
-        return normalize_score(0.1)
+        return safe_score(0.1)
 
     total = 0.0
     for criterion in criteria:
@@ -157,14 +122,12 @@ def _score_completeness(
         points = criterion.get("points", 0.0)
 
         if check == "addresses_question" or check == "addresses_defect":
-            # Check if response directly addresses the main issue
             subject = _normalise(ticket_info.get("subject", ""))
             subject_words = [w for w in subject.split() if len(w) > 3]
             if any(w in norm for w in subject_words) or len(norm.split()) > 20:
                 total += points
 
         elif check == "provides_next_steps":
-            # Check for actionable next steps
             step_indicators = [
                 "will", "can", "please", "next step", "process",
                 "we'll", "i'll", "going to", "let me", "i can",
@@ -174,15 +137,13 @@ def _score_completeness(
                 total += points
 
         elif check == "references_order":
-            # Check if the specific order ID is referenced
             order_id = ticket_info.get("order_id", "")
             if order_id and order_id.lower() in norm:
                 total += points
             elif "order" in norm:
-                total += points * 0.5  # Partial credit for mentioning order
+                total += points * 0.5
 
         elif check == "explains_policy":
-            # Check if relevant policy details are mentioned
             policy_terms = [
                 "policy", "within", "days", "eligible", "qualify",
                 "terms", "condition", "guideline",
@@ -191,7 +152,6 @@ def _score_completeness(
                 total += points
 
         elif check == "provides_process":
-            # Check if return/refund process is outlined
             process_terms = [
                 "step", "first", "then", "send", "ship", "return",
                 "label", "process", "receive", "refund",
@@ -200,13 +160,11 @@ def _score_completeness(
                 total += points
 
         elif check == "offers_options":
-            # Check if multiple options are presented
             option_indicators = ["or", "option", "alternative", "either", "choose", "prefer"]
             if any(ind in norm for ind in option_indicators):
                 total += points
 
         elif check == "acknowledges_all_issues":
-            # For hard task: must address multiple issues
             issues_to_address = ["wrong", "late", "delay", "rude", "staff", "agent"]
             addressed = sum(1 for iss in issues_to_address if iss in norm)
             if addressed >= 3:
@@ -217,7 +175,6 @@ def _score_completeness(
                 total += points * 0.3
 
         elif check == "concrete_resolution":
-            # Check for concrete actions, not just apologies
             concrete_terms = [
                 "refund", "replacement", "ship", "send", "credit",
                 "discount", "expedite", "priority", "immediately",
@@ -227,7 +184,6 @@ def _score_completeness(
                 total += points
 
         elif check == "timeline":
-            # Check if specific timelines are given
             time_patterns = [
                 r"\d+\s*(hour|day|week|business day)",
                 r"within\s+\d+",
@@ -241,17 +197,15 @@ def _score_completeness(
                 total += points
 
         elif check == "empathy":
-            # Check for empathetic language
             empathy_terms = [
                 "understand", "frustrat", "sorry", "apologize",
                 "inconvenience", "disappoint", "concern",
-                "appreciate your patience", "I hear you",
+                "appreciate your patience", "i hear you",
             ]
             if sum(1 for t in empathy_terms if t in norm) >= 2:
                 total += points
 
         elif check == "follow_up_plan":
-            # Check for follow-up commitments
             follow_up_terms = [
                 "follow up", "follow-up", "check back", "update you",
                 "keep you informed", "contact you", "reach out",
@@ -260,7 +214,7 @@ def _score_completeness(
             if any(t in norm for t in follow_up_terms):
                 total += points
 
-    return normalize_score(total)
+    return safe_score(total)
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -278,11 +232,9 @@ def _compute_penalties(
     norm = _normalise(response)
     penalty = 0.0
 
-    # Penalty: empty or near-empty response
     if len(norm.split()) < 5:
         penalty -= 0.2
 
-    # Penalty: repeated response (copy-paste from previous)
     if conversation_history:
         prev_agent_msgs = [
             _normalise(m.get("content", ""))
@@ -297,7 +249,6 @@ def _compute_penalties(
                 penalty -= 0.1
                 break
 
-    # Penalty: harmful/inappropriate content
     harmful_patterns = [
         "kill", "die", "hate you", "shut up", "idiot",
         "moron", "loser", "go away",
@@ -305,7 +256,6 @@ def _compute_penalties(
     if any(pat in norm for pat in harmful_patterns):
         penalty -= 0.3
 
-    # Penalty: completely irrelevant response
     irrelevant_signals = [
         "weather", "recipe", "joke", "game score",
         "political", "stock market",
@@ -336,18 +286,19 @@ def grade_response(
         conversation_history: Previous messages
 
     Returns:
-        RewardBreakdown with ALL scores in strict (0.0, 1.0) open interval
+        RewardBreakdown with ALL scores in strict (0.0, 1.0) open interval.
+        The RewardBreakdown model auto-clamps all score fields via validators.
     """
-    # Score each axis — normalize_score guarantees (0, 1)
-    correctness = normalize_score(_score_correctness(
+    # Score each axis — safe_score guarantees (0, 1)
+    correctness = safe_score(_score_correctness(
         response,
         grading_rubric.get("correctness", {}),
     ))
-    tone = normalize_score(_score_tone(
+    tone = safe_score(_score_tone(
         response,
         grading_rubric.get("tone", {}),
     ))
-    completeness = normalize_score(_score_completeness(
+    completeness = safe_score(_score_completeness(
         response,
         grading_rubric.get("completeness", {}),
         ticket_info,
@@ -369,16 +320,18 @@ def grade_response(
         + completeness * w_completeness
     )
 
-    # Apply penalties — normalize_score guarantees strict (0, 1)
-    total = normalize_score(weighted + penalties)
+    # Apply penalties — safe_score guarantees strict (0, 1)
+    total = safe_score(weighted + penalties)
 
     # The efficiency field re-uses the weighted pre-penalty score
-    efficiency = normalize_score(weighted)
+    efficiency = safe_score(weighted)
 
     # Debug logging
-    print(f"[DEBUG] correctness={correctness:.4f} tone={tone:.4f} "
-          f"completeness={completeness:.4f} weighted={weighted:.4f} "
-          f"penalties={penalties:.4f} total={total:.4f}")
+    logger.info(
+        f"[GRADER] correctness={correctness:.4f} tone={tone:.4f} "
+        f"completeness={completeness:.4f} weighted={weighted:.4f} "
+        f"penalties={penalties:.4f} total={total:.4f}"
+    )
 
     # Build explanation
     parts = []
@@ -389,12 +342,13 @@ def grade_response(
         parts.append(f"Penalties: {penalties:.4f}")
     parts.append(f"Total: {total:.4f}")
 
+    # RewardBreakdown auto-clamps all score fields via field_validator
     return RewardBreakdown(
-        correctness=normalize_score(correctness),
-        tone=normalize_score(tone),
-        completeness=normalize_score(completeness),
-        efficiency=normalize_score(efficiency),
+        correctness=correctness,
+        tone=tone,
+        completeness=completeness,
+        efficiency=efficiency,
         penalties=round(penalties, 4),
-        total=normalize_score(total),
+        total=total,
         explanation=" | ".join(parts),
     )
