@@ -196,9 +196,8 @@ class RewardBreakdown(BaseModel):
         description="Score for resolution efficiency — strict (0, 1)",
     )
     penalties: float = Field(
-        default=0.0,
-        ge=-1.0, le=0.0,
-        description="Penalty deductions (negative value)",
+        default=0.01,
+        description="Penalty deductions — strict (0, 1)",
     )
     total: float = Field(
         default=0.01,
@@ -210,7 +209,7 @@ class RewardBreakdown(BaseModel):
     )
 
     @field_validator(
-        "correctness", "tone", "completeness", "efficiency", "total",
+        "correctness", "tone", "completeness", "efficiency", "penalties", "total",
         mode="before",
     )
     @classmethod

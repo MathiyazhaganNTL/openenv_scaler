@@ -125,6 +125,12 @@ def _sanitize_task_result(task_result: Dict[str, Any]) -> Dict[str, Any]:
     safe["elapsed"] = float(safe.get("elapsed", 0.0) or 0.0)
     # ALWAYS include a 'score' field — evaluator may read this
     safe["score"] = safe_score(safe.get("score", safe.get("avg_reward", 0.5)))
+
+    # CATCH-ALL: force every numeric value through safe_score
+    for k, v in safe.items():
+        if isinstance(v, (int, float)) and k not in ("steps", "elapsed"):
+            safe[k] = safe_score(v)
+
     logger.info(
         f"[DEBUG] _sanitize: task={safe.get('task_id')} "
         f"total_reward={safe['total_reward']:.4f} "
@@ -463,8 +469,9 @@ def main():
         """Write sanitized results and return sanitized final score."""
         sanitized_results = [_sanitize_task_result(r) for r in results]
 
-        total_avg = sum(r["avg_reward"] for r in sanitized_results)
-        final = safe_score(total_avg / len(sanitized_results)) if sanitized_results else 0.5
+        safe_rewards = [safe_score(r.get("avg_reward", 0.5)) for r in sanitized_results]
+        total_avg = sum(safe_rewards)
+        final = safe_score(total_avg / len(safe_rewards)) if safe_rewards else 0.5
 
         output = {
             "final_score": final,

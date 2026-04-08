@@ -156,12 +156,20 @@ def grade_response(
 
     logger.info(f"[GRADER] score={final_score:.4f} metrics={metrics}")
 
+    # STRICT (0,1) enforcement — wrap every value one final time
+    correctness_val = safe_score(correctness_val)
+    tone_val = safe_score(tone_val)
+    completeness_val = safe_score(completeness_val)
+    efficiency_val = safe_score(efficiency_val)
+    penalties_val = safe_score(penalties_total)
+    final_score = safe_score(final_score)
+
     return RewardBreakdown(
         correctness=correctness_val,
         tone=tone_val,
         completeness=completeness_val,
         efficiency=efficiency_val,
-        penalties=round(max(-1.0, min(0.0, penalties_total)), 4),
+        penalties=penalties_val,
         total=final_score,
         explanation=" | ".join(parts),
     )
