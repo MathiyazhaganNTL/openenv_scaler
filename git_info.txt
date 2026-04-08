@@ -1,0 +1,26 @@
+﻿hf	https://huggingface.co/spaces/mathi3046/customer-support-env (fetch)
+hf	https://huggingface.co/spaces/mathi3046/customer-support-env (push)
+origin	https://github.com/MathiyazhaganNTL/openenv_scaler.git (fetch)
+origin	https://github.com/MathiyazhaganNTL/openenv_scaler.git (push)
+
+---STATUS---
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   __init__.py
+	modified:   grader.py
+	modified:   inference.py
+	modified:   models.py
+	modified:   pyproject.toml
+	modified:   server/app.py
+	modified:   server/environment.py
+	modified:   validate.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git_info.txt
+	pypath.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
