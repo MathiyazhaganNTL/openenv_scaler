@@ -35,7 +35,7 @@ for stream in [sys.stdout, sys.stderr]:
             pass
 
 try:
-    import requests
+    import requests  # type: ignore
 except ImportError:
     requests = None
 
@@ -201,10 +201,10 @@ def call_llm(
         return "I apologize for the inconvenience. Let me look into this for you right away."
     for attempt in range(max_retries):
         try:
-            # Use type: ignore to bypass strict overload checks if the IDE is confused
-            completion = _llm_client.chat.completions.create(
+            # Use type: ignore at the end of the call start to suppress overload warnings
+            completion = _llm_client.chat.completions.create(  # type: ignore
                 model=str(MODEL_NAME),
-                messages=messages,  # type: ignore
+                messages=messages,
                 temperature=float(temperature),
                 max_tokens=int(max_tokens),
             )
