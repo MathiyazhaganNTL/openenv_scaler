@@ -383,6 +383,10 @@ def run_task(env_client: EnvClient, task_id: str) -> Dict[str, Any]:
     # Reset the environment
     obs = env_client.reset(task_id=task_id)
 
+    # Clamp reward field in observation (SupportObservation.reward defaults to 0.0)
+    if isinstance(obs, dict) and "reward" in obs:
+        obs["reward"] = safe_score(obs.get("reward", 0.0001))
+
     # Safe access to current_message
     current_msg = obs.get("current_message", "(no message)")
     logger.info(f"[STEP] task={task_id} step=0 type=reset customer_message=\"{current_msg[:80]}...\"")
@@ -423,6 +427,9 @@ def run_task(env_client: EnvClient, task_id: str) -> Dict[str, Any]:
         total_reward += step_reward
         done = result.get("done", False)
         obs = result.get("observation", {})
+        # Clamp reward field in observation (SupportObservation.reward may be 0.0)
+        if isinstance(obs, dict) and "reward" in obs:
+            obs["reward"] = safe_score(obs.get("reward", 0.0001))
         info = result.get("info", {})
 
         # Log step

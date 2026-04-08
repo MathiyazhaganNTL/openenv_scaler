@@ -10,7 +10,7 @@ seeing boundary values (0.0 or 1.0).
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -165,7 +165,13 @@ class SupportObservation(BaseModel):
     max_steps: int = Field(default=5, description="Maximum steps allowed for this task")
     steps_remaining: int = Field(default=5, description="Steps left before timeout")
     done: bool = Field(default=False, description="Whether the episode is complete")
-    reward: float = Field(default=0.0, description="Cumulative reward so far")
+    reward: float = Field(default=0.0001, description="Cumulative reward so far")
+
+    @field_validator("reward", mode="before")
+    @classmethod
+    def _clamp_obs_reward(cls, v: Any) -> float:
+        """Auto-clamp reward to strict (0, 1)."""
+        return safe_score(v)
 
 
 # ──────────────────────────────────────────────────────────────────
